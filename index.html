@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brain Stroke Detection and Classification</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+            background: url('/static/images/backgroundimage.jpg') no-repeat center center fixed;
+            background-size: cover;
+        }
+        header {
+            background-color: #148e9b;
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            width: 100%;
+            position: fixed;
+            top: 0;
+        }
+        .container {
+            padding: 2rem;
+            max-width: 800px;
+            margin: 4rem auto;
+            background-color: rgb(94, 255, 223);
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .file-upload {
+            margin-bottom: 20px;
+        }
+        .file-upload input[type="file"] {
+            display: none;
+        }
+        .file-upload label {
+            display: block;
+            padding: 10px;
+            background: #4c6aaf;
+            color: #fff;
+            text-align: center;
+            cursor: pointer;
+        }
+        .file-upload label:hover {
+            background: #22e9ff;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+        #result, #segmentation-result {
+            margin-top: 20px;
+            text-align: center;
+        }
+        #segmentation-result img {
+            max-width: 800px;
+            max-height: 600px;
+        }
+        .chatbox {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 300px;
+            background: hwb(183 59% 0%);
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .chatbox-header {
+            background: #045e6c;
+            color: #fff;
+            padding: 10px;
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+            text-align: center;
+        }
+        .chatbox-body {
+            padding: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .chatbox-input {
+            display: flex;
+            border-top: 1px solid #ddd;
+        }
+        .chatbox-input input {
+            width: 80%;
+            padding: 10px;
+            border: none;
+            border-bottom-left-radius: 10px;
+        }
+        .chatbox-input button {
+            width: 20%;
+            border: none;
+            background: #ffbbf9;
+            color: #fff;
+            cursor: pointer;
+            border-bottom-right-radius: 10px;
+        }
+        .chatbox-input button:hover {
+            background: #b4fbda;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Brain Stroke Detection and Classification</h1>
+    </header>
+    <div class="container">
+        <h2>Upload an MRI Image</h2>
+        <div class="file-upload">
+            <input type="file" id="fileInput" accept="image/*">
+            <label for="fileInput">Choose File</label>
+        </div>
+        <button id="predictButton">Classify and Predict</button>
+        <button id="segmentButton">Segment Image</button>
+        <div id="result"></div>
+        <div id="segmentation-result">
+            <img id="segmentationImage" src="" alt="Segmentation Result">
+        </div>
+    </div>
+
+    <div class="chatbox" id="chatbox">
+        <div class="chatbox-header">Chatbot</div>
+        <div class="chatbox-body" id="chatbox-body"></div>
+        <div class="chatbox-input">
+            <input type="text" id="chat-input" placeholder="Ask a question...">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('predictButton').addEventListener('click', async function() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            if (!file) {
+                alert('Please upload an image file');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                document.getElementById('result').textContent = `Class: ${data.class}, Confidence: ${data.confidence.toFixed(2)}`;
+            } catch (error) {
+                console.error('Error during prediction:', error);
+                document.getElementById('result').textContent = 'Error during prediction.';
+            }
+        });
+
+        document.getElementById('segmentButton').addEventListener('click', async function() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            if (!file) {
+                alert('Please upload an image file');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/segment', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const blob = await response.blob();
+                const img = document.getElementById('segmentationImage');
+                img.src = URL.createObjectURL(blob);
+            } catch (error) {
+                console.error('Error during segmentation:', error);
+                document.getElementById('segmentationImage').src = '';
+            }
+        });
+
+        async function sendMessage() {
+            const chatInput = document.getElementById('chat-input');
+            const message = chatInput.value;
+            if (!message) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/chatbot', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ question: message })
+                });
+
+                const result = await response.json();
+                const chatboxBody = document.getElementById('chatbox-body');
+                chatboxBody.innerHTML += `<p><strong>You:</strong> ${message}</p>`;
+                chatboxBody.innerHTML += `<p><strong>Bot:</strong> ${result.answer}</p>`;
+                chatInput.value = '';
+                chatboxBody.scrollTop = chatboxBody.scrollHeight;
+            } catch (error) {
+                console.error('Error during chatbot interaction:', error);
+                const chatboxBody = document.getElementById('chatbox-body');
+                chatboxBody.innerHTML += `<p><strong>Bot:</strong> Error processing question.</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
